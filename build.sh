@@ -1,0 +1,1 @@
+gcc -fsanitize=address,leak,undefined -O3 -Wall -Wextra -Wno-unused-function -lm -finput-charset=UTF-8 -fexec-charset=UTF-8 -D __DEBUG__ -I./ libs/logging/logging.c libs/io/io.c tree/tree.c tree/dump/dump.c akinator/akinator.c main.c -o dist/main.out
