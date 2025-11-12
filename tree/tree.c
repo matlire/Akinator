@@ -101,6 +101,86 @@ err_t tree_fprint(FILE *out, const tree_t *const tree)
     return OK;
 }
 
+
+static void json_indent(FILE* out, int n) 
+{
+    for (int i = 0; i < n; ++i) fputc(' ', out);
+}
+
+static void json_escape(FILE* out, const char* s) 
+{
+    for (const unsigned char* p = (const unsigned char*)s; *p; ++p) 
+    {
+        unsigned char c = *p;
+        switch (c) 
+        {
+            case '\"': fputs("\\\"", out); break;
+            case '\\': fputs("\\\\", out); break;
+            case '\b': fputs("\\b",  out); break;
+            case '\f': fputs("\\f",  out); break;
+            case '\n': fputs("\\n",  out); break;
+            case '\r': fputs("\\r",  out); break;
+            case '\t': fputs("\\t",  out); break;
+            default:   fputc(c, out); break;
+        }
+    }
+}
+
+static void json_print_leaf(FILE* out, const char* s, int indent)
+{
+    unused indent;
+    fputc('"', out);
+    if (s) json_escape(out, s);
+    fputc('"', out);
+}
+
+err_t tree_fprint_json_node(FILE *out, const node_t * const node, size_t iter)
+{
+    if (!node) { fputs("null", out); return ERR_BAD_ARG; }
+
+    if (!node->left && !node->right) {
+        fputc('"', out);
+        json_escape(out, node->data ? node->data : "");
+        fputc('"', out);
+        return ERR_CORRUPT;
+    }
+
+    json_indent(out, iter);
+    fputc('{', out);
+    fputc('"', out);
+    json_escape(out, node->data ? node->data : "");
+    fputs("\": [\n", out);
+
+    json_indent(out, iter + 2);
+    tree_fprint_json_node(out, node->left, iter + 2);
+    fputs(",\n", out);
+
+    json_indent(out, iter + 2);
+    tree_fprint_json_node(out, node->right, iter + 2);
+    fputc('\n', out);
+
+    json_indent(out, iter);
+    fputs("]}", out);
+
+    return OK;
+}
+
+err_t tree_fprint_json(FILE *out, const tree_t * const tree)
+{
+    if (!CHECK(ERROR, out != NULL, "tree_fprintf: out is NULL"))
+        return ERR_BAD_ARG;
+    if (!CHECK(ERROR, tree != NULL, "tree_fprintf: tree is NULL"))
+        return ERR_BAD_ARG;
+
+    fwrite("\xEF\xBB\xBF", 1, 3, out);
+
+    if (tree->root)
+        return tree_fprint_json_node(out, tree->root, 0);
+
+    fprintf(out, "nil");
+    return OK;
+}
+
 err_t tree_delete_node(node_t * node, size_t iter)
 {
     if (!CHECK(ERROR, node != NULL, "tree_delete_node: node is NULL"))

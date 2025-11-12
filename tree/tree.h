@@ -48,6 +48,9 @@ err_t tree_verify(const tree_t * const tree);
 err_t tree_fprint_node(FILE *out, const node_t * const node, size_t iter);
 err_t tree_fprint     (FILE *out, const tree_t * const tree);
 
+err_t tree_fprint_json_node(FILE *out, const node_t * const node, size_t iter);
+err_t tree_fprint_json     (FILE *out, const tree_t * const tree);
+
 err_t tree_delete_node(node_t * node, size_t iter);
 err_t tree_clear      (const tree_t * const tree);
 

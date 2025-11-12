@@ -14,3 +14,6 @@
 [12-11-2025 15:33:12 DEBUG] 3
 [12-11-2025 15:33:12 DEBUG] 4
 [12-11-2025 15:33:12 DEBUG] 5
+[12-11-2025 16:42:09 ERROR] Error getting file stats for akinator1_db
+[12-11-2025 16:42:09 ERROR] [File libs/io/io.c at line 52 at load_file] Can't open file %s in mode %s
+[12-11-2025 16:42:09 ERROR] [File libs/io/io.c at line 73 at read_file] Error reading file, some data is missing

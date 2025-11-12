@@ -43,7 +43,7 @@
 <polygon fill="none" stroke="#d0d5dd" points="100,-281 100,-302 213,-302 213,-281 100,-281"/>
 <text text-anchor="start" x="105" y="-289" font-family="monospace" font-size="10.00">data</text>
 <polygon fill="none" stroke="#d0d5dd" points="213,-281 213,-302 326,-302 326,-281 213,-281"/>
-<text text-anchor="start" x="218" y="-289" font-family="monospace" font-size="10.00">&quot;кошачья морда?&quot;</text>
+<text text-anchor="start" x="218" y="-289" font-family="monospace" font-size="10.00">&quot;Кошачья морда?&quot;</text>
 <polygon fill="none" stroke="#d0d5dd" points="100,-260 100,-281 213,-281 213,-260 100,-260"/>
 <text text-anchor="start" x="105" y="-268" font-family="monospace" font-size="10.00">L: 0x503000000100</text>
 <polygon fill="none" stroke="#d0d5dd" points="213,-260 213,-281 326,-281 326,-260 213,-260"/>
@@ -124,7 +124,7 @@
 <polygon fill="none" stroke="#d0d5dd" points="172,-151 172,-172 231,-172 231,-151 172,-151"/>
 <text text-anchor="start" x="177" y="-159" font-family="monospace" font-size="10.00">data</text>
 <polygon fill="none" stroke="#d0d5dd" points="231,-151 231,-172 326,-172 326,-151 231,-151"/>
-<text text-anchor="start" x="236" y="-159" font-family="monospace" font-size="10.00">&quot;Пес&quot;</text>
+<text text-anchor="start" x="236" y="-159" font-family="monospace" font-size="10.00">&quot;Песик&quot;</text>
 <polygon fill="none" stroke="#d0d5dd" points="172,-130 172,-151 231,-151 231,-130 172,-130"/>
 <text text-anchor="start" x="177" y="-138" font-family="monospace" font-size="10.00">L: (nil)</text>
 <polygon fill="none" stroke="#d0d5dd" points="231,-130 231,-151 326,-151 326,-130 231,-130"/>

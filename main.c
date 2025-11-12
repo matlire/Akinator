@@ -9,7 +9,7 @@ int main()
 
     CREATE_AKINATOR(akinator1);
 
-    akinator_read_file(&akinator1, "akinator1_db");
+    akinator_read_file(&akinator1, "akinator1_db.json");
     tree_dump(akinator1.tree, "test", "tgdump.html");
 
     /*
@@ -36,9 +36,16 @@ int main()
 
     akinator_run(&akinator1);
     tree_dump(akinator1.tree, "test", "tgdump.html"); 
+    
+    akinator_write_file(&akinator1, "akinator1_db.json");
     */
 
-    //akinator_write_file(&akinator1, "akinator1_db");
+    akinator_run(&akinator1);
+
+    /*
+    describe_object(&akinator1, "ПетроВич");
+    difference_in_objects(&akinator1, "ПетроВич", "Паша");
+    */
 
     akinator_dtor(&akinator1);
 

@@ -35,6 +35,8 @@ err_t guess          (akinator_t* akin, int guess);
 err_t insert_object  (akinator_t* akin, char* value, node_t* after, directions_e direction, int move_to);
 err_t describe_object(akinator_t* akin, char* object);
 
+err_t difference_in_objects(akinator_t* akin, char* object1, char* object2);
+
 err_t akinator_read_file (akinator_t* akin, char* filename);
 err_t akinator_write_file(akinator_t* akin, char* filename);
 
