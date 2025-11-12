@@ -1,13 +1,13 @@
 #include "tree.h"
 
-err_t node_ctor(node_t * const node)
+err_t node_ctor(node_t ** node)
 {
-    if (!CHECK(ERROR, node != NULL, "node_ctor: node is NULL"))
-        return ERR_BAD_ARG;
+    *node = (node_t*)calloc(1, sizeof(**node));
+    if (*node == NULL) return ERR_ALLOC;
 
-    node->data  = 0;
-    node->left  = NULL;
-    node->right = NULL;
+    (*node)->data  = 0;
+    (*node)->left  = NULL;
+    (*node)->right = NULL;
     return OK;
 }
 
@@ -69,11 +69,7 @@ err_t tree_fprint_node(FILE *out, const node_t *const node, size_t iter)
     iter += 1;
 
     if (node->data) 
-    {
-        fprintf(out, "(");
-        fprintf(out, "%s", node->data);
-        fprintf(out, "\"");
-    }
+        fprintf(out, "(\"%s\"", node->data);
 
     if (node->left)
         (void)tree_fprint_node(out, node->left, iter);
@@ -101,7 +97,7 @@ err_t tree_fprint(FILE *out, const tree_t *const tree)
     if (tree->root)
         return tree_fprint_node(out, tree->root, 0);
 
-    fputs("nil", out);
+    fprintf(out, "nil");
     return OK;
 }
 
@@ -151,19 +147,16 @@ err_t tree_insert(tree_t * const tree, const tree_elem_t data)
     if (!CHECK(ERROR, tree != NULL, "tree_insert: tree is NULL"))
         return ERR_BAD_ARG;
 
-    node_t *node = (node_t*)calloc(1, sizeof(*node));
-    if (!CHECK(ERROR, node != NULL, "tree_insert: node alloc failed"))
-        return ERR_ALLOC;
+    node_t *node = NULL;
+    err_t ret = node_ctor(&node);
+    if (ret != OK) return ret;
 
     if (data != NULL) {
-        size_t len = strlen(data);
-        char *copy = (char*)calloc(len + 1, 1);
-        if (!CHECK(ERROR, copy != NULL, "tree_insert: data alloc failed")) {
-            free(node);
+        node->data = strdup(data);
+        if (!CHECK(ERROR, node->data != NULL, "tree_insert: data alloc failed")) {
+            node_dtor(node);
             return ERR_ALLOC;
         }
-        memcpy(copy, data, len);
-        node->data = copy;
     }
 
     tree->nodes_amount += 1;

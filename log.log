@@ -1,0 +1,16 @@
+[12-11-2025 13:00:38 DEBUG] 1
+[12-11-2025 13:00:38 DEBUG] 2
+[12-11-2025 13:00:38 DEBUG] 3
+[12-11-2025 13:08:23 DEBUG] 1
+[12-11-2025 14:57:12 ERROR] [File libs/io/io.c at line 75 at read_file] Operational buffer is NULL
+[12-11-2025 14:59:16 ERROR] [File libs/io/io.c at line 76 at read_file] Operational buffer size is zero
+[12-11-2025 14:59:32 ERROR] [File libs/io/io.c at line 76 at read_file] Operational buffer size is zero
+[12-11-2025 15:00:21 ERROR] [File libs/io/io.c at line 76 at read_file] Operational buffer size is zero
+[12-11-2025 15:00:47 ERROR] [File libs/io/io.c at line 76 at read_file] Operational buffer size is zero
+[12-11-2025 15:01:17 DEBUG] 231
+[12-11-2025 15:01:17 ERROR] [File libs/io/io.c at line 76 at read_file] Operational buffer size is zero
+[12-11-2025 15:33:12 DEBUG] 1
+[12-11-2025 15:33:12 DEBUG] 2
+[12-11-2025 15:33:12 DEBUG] 3
+[12-11-2025 15:33:12 DEBUG] 4
+[12-11-2025 15:33:12 DEBUG] 5

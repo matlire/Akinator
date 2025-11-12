@@ -9,6 +9,10 @@ int main()
 
     CREATE_AKINATOR(akinator1);
 
+    akinator_read_file(&akinator1, "akinator1_db");
+    tree_dump(akinator1.tree, "test", "tgdump.html");
+
+    /*
     insert_object(&akinator1, "Животное?", NULL, DIR_IGNORE, DIR_IGNORE);
     tree_dump(akinator1.tree, "test", "tgdump.html");
     node_t* root = akinator1.tree->root;
@@ -32,10 +36,9 @@ int main()
 
     akinator_run(&akinator1);
     tree_dump(akinator1.tree, "test", "tgdump.html"); 
+    */
 
-    write_file(&akinator1, "akinator1_db");
-    //char* str = "ПетроВич";
-    //describe_object(&akinator1, str);
+    //akinator_write_file(&akinator1, "akinator1_db");
 
     akinator_dtor(&akinator1);
 

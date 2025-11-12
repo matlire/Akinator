@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
+#include <string.h>
 
 #define MAX_RECURSION_LIMIT 4096
 
@@ -36,8 +37,8 @@ typedef struct
     node_t* node_name = calloc(1, sizeof(node_t));  \
     node_ctor((node_name))
 
-err_t node_ctor(node_t * const node);
-err_t node_dtor(node_t * node);
+err_t node_ctor(node_t ** node);
+err_t node_dtor(node_t *  node);
 
 err_t tree_ctor(tree_t * const tree);
 err_t tree_dtor(tree_t * const tree);

@@ -51,13 +51,15 @@ err_t insert_object(akinator_t* akin, char* value, node_t* after, directions_e d
     if ((direction != DIR_IGNORE && direction != DIR_NO && direction != DIR_YES) ||
         (move_to != DIR_IGNORE && move_to != DIR_NO && move_to != DIR_YES)) return ERR_BAD_ARG;
 
-    node_t *node = (node_t*)calloc(1, sizeof(*node));
-    if (!node) return ERR_ALLOC;
+    node_t *node = NULL;
+    err_t ret = node_ctor(&node);
+    if (ret != OK) return ret;
 
-    size_t len = strlen(value);
-    node->data = (char*)calloc(len + 1, 1);
-    if (!node->data) { free(node); return ERR_ALLOC; }
-    memcpy(node->data, value, len);
+    node->data = strdup(value);
+    if (node->data == NULL) { 
+        node_dtor(node); 
+        return ERR_ALLOC; 
+    }
 
     if (direction == DIR_IGNORE) {
         if (akin->tree->root == NULL) 
@@ -66,15 +68,13 @@ err_t insert_object(akinator_t* akin, char* value, node_t* after, directions_e d
             akin->tree->nodes_amount += 1;
             return OK;
         }
-        free(node->data);
-        free(node);
+        node_dtor(node); 
         return ERR_BAD_ARG;
     }
 
     if (!after) 
     {
-        free(node->data);
-        free(node);
+        node_dtor(node); 
         return ERR_BAD_ARG;
     }
 
@@ -93,9 +93,10 @@ err_t insert_object(akinator_t* akin, char* value, node_t* after, directions_e d
     }
 
     node_t **slot = (direction == DIR_YES) ? &after->left : &after->right;
-    node_t *old = *slot;
+    node_t  *old  = *slot;
     *slot = node;
-    if (move_to == DIR_YES) node->left = old; else node->right = old;
+    if (move_to == DIR_YES) node->left = old; 
+    else node->right = old;
 
     akin->tree->nodes_amount += 1;
     return OK;
@@ -182,8 +183,9 @@ err_t describe_object(akinator_t* akin, char* object)
     return ERR_BAD_ARG;
 }
 
-err_t write_file(akinator_t* akin, char* filename)
+err_t akinator_write_file(akinator_t* akin, char* filename)
 {
+    if (akin == NULL) return ERR_BAD_ARG;
     err_t ret = clean_file(filename);
     if (ret != 1) return ERR_CORRUPT;
     FILE* file = load_file(filename, "wb");
@@ -192,28 +194,36 @@ err_t write_file(akinator_t* akin, char* filename)
     return ret;
 }
 
+static const int ru_letter_len = strlen("д");
+
 static int ru_is_yes(const char *s) 
 {
-    return strcmp(s,"д")==0  || strcmp(s,"Д")==0  ||
-           strcmp(s,"да")==0 || strcmp(s,"Да")==0 || strcmp(s,"ДА")==0;
+    return strncmp(s, "д",  1*ru_letter_len) == 0 || 
+           strncmp(s, "Д",  1*ru_letter_len) == 0 ||
+           strncmp(s, "да", 2*ru_letter_len) == 0 || 
+           strncmp(s, "Да", 2*ru_letter_len) == 0 || 
+           strncmp(s, "ДА", 2*ru_letter_len) == 0;
 }
 
 static int ru_is_no(const char *s) 
 {
-    return strcmp(s,"н")==0   || strcmp(s,"Н")==0   ||
-           strcmp(s,"нет")==0 || strcmp(s,"Нет")==0 || strcmp(s,"НЕТ")==0;
+    return strncmp(s, "н",   1*ru_letter_len) == 0 || 
+           strncmp(s, "Н",   1*ru_letter_len) == 0 ||
+           strncmp(s, "нет", 3*ru_letter_len) == 0 || 
+           strncmp(s, "Нет", 3*ru_letter_len) == 0 || 
+           strncmp(s, "НЕТ", 3*ru_letter_len) == 0;
 }
 
 static const char* ltrim_spaces(const char *s) 
 {
-    while (*s==' ') s++;
+    while (*s == ' ') s++;
     return s;
 }
 
 static void rtrim_spaces(char *s) 
 {
     size_t l = strlen(s);
-    while (l && s[l-1]==' ') s[--l]='\0';
+    while (l && s[l-1] ==' ') s[--l]='\0';
 }
 
 static void ensure_qmark(char *s, size_t cap) 
@@ -221,17 +231,24 @@ static void ensure_qmark(char *s, size_t cap)
     size_t l = strlen(s);
     if (l==0 || s[l-1] != '?') 
     {
-        if (l < cap-1) { s[l++]='?'; s[l]='\0'; }
-        else { s[cap-2]='?'; s[cap-1]='\0'; }
+        if (l < cap-1) 
+        { 
+            s[l++]='?'; 
+            s[l]='\0'; 
+        } else 
+        { 
+            s[cap-2]='?'; 
+            s[cap-1]='\0'; 
+        }
     }
 }
 
 static int detect_negation(const char *s) 
 {
-    return strncmp(s,"не ", strlen("не "))==0   ||
-           strncmp(s,"Не ", strlen("Не "))==0   ||
-           strncmp(s,"НЕ ", strlen("НЕ "))==0   ||
-           strstr(s," не ") || strstr(s," Не ") || strstr(s," НЕ ");
+    return strncmp(s, "не ", 2*ru_letter_len + 1) == 0 ||
+           strncmp(s, "Не ", 2*ru_letter_len + 1) == 0 ||
+           strncmp(s, "НЕ ", 2*ru_letter_len + 1) == 0 ||
+           strstr(s, " не ") || strstr(s, " Не ") || strstr(s, " НЕ ");
 }
 
 static void normalize_predicate(const char *in, char *out, size_t cap, int *is_neg) 
@@ -239,9 +256,7 @@ static void normalize_predicate(const char *in, char *out, size_t cap, int *is_n
     const char *p = ltrim_spaces(in);
     *is_neg       = detect_negation(p);
 
-    if      (strncmp(p, "не ", strlen("не ")) == 0) p += strlen("не ");
-    else if (strncmp(p, "Не ", strlen("Не ")) == 0) p += strlen("Не ");
-    else if (strncmp(p, "НЕ ", strlen("НЕ ")) == 0) p += strlen("НЕ ");
+    if (*is_neg) p = p + 2*ru_letter_len + 1;
 
     size_t l = strlen(p);
     if (l >= cap) l = cap-1;
@@ -259,7 +274,8 @@ static int read_line(char *buf, size_t cap) {
     size_t i = 0;
     int c = getchar();
     if (c == EOF) return -1;
-    while (c != '\n' && c != EOF) {
+    while (c != '\n' && c != EOF) 
+    {
         if (i + 1 < cap) buf[i++] = (char)c;
         c = getchar();
     }
@@ -293,7 +309,8 @@ err_t akinator_run(akinator_t* akin)
             scanf("%*[^\n]"); scanf("%*c");
             if (r1 == 0) obj[0] = '\0';
 
-            char pred[512]={0}, crit[512]={0};
+            char pred[512] = { 0 };
+            char crit[512] = { 0 };
             printf("Чем \"%s\" отличается \"%s\"? \"%s\" ...", obj, n->data ? n->data : "", obj);
             fflush(stdout);
             int r2 = scanf("%511[^\n]", pred);
@@ -322,9 +339,7 @@ err_t akinator_run(akinator_t* akin)
                 if (!neg) 
                     { if (insert_object(akin, obj, q, DIR_YES, DIR_IGNORE) != OK) return ERR_CORRUPT; }
                 else 
-                    { if (insert_object(akin, obj, q, DIR_NO, DIR_IGNORE) != OK) return ERR_CORRUPT; }
-                printf("Спасибо, я когда-нибудь все запомню...\n");
-                return OK;
+                    { if (insert_object(akin, obj, q, DIR_NO, DIR_IGNORE) != OK) return ERR_CORRUPT; } 
             } else 
             {
                 int dir = (parent->left == n) ? 1 : 0;
@@ -339,9 +354,9 @@ err_t akinator_run(akinator_t* akin)
                     node_t* q = dir ? parent->left : parent->right;
                     if (insert_object(akin, obj, q, DIR_NO, DIR_IGNORE) != OK) return ERR_CORRUPT;
                 }
-                printf("Спасибо, я когда-нибудь все запомню.\n");
-                return OK;
             }
+            printf("Спасибо, я когда-нибудь все запомню...\n");
+            return OK;
         }
 
         char ans[8];
@@ -353,5 +368,74 @@ err_t akinator_run(akinator_t* akin)
         if      (ru_is_yes(ans)) akin->curr = n->left  ? n->left  : n->right;
         else if (ru_is_no(ans))  akin->curr = n->right ? n->right : n->left;
     }
+}
+
+#define NIL_CMP(buff, pos) \
+    ((buff)[*(pos)] == 'n' && (buff)[*(pos)+1] == 'i' && (buff)[*(pos)+2] == 'l')
+
+static size_t read_data(operational_data_t* op_data, size_t* pos, char* data)
+{
+    const char *p = ltrim_spaces(&op_data->buffer[*pos]);
+    *pos = (size_t)(p - op_data->buffer);
+    size_t read_bytes = 0;
+    if (sscanf(p, "\"%511[^\"]\"%ln", data, &read_bytes) != 1) return 0;
+    *pos += read_bytes;
+    return read_bytes;
+}
+
+static node_t* read_node(operational_data_t* op_data, size_t* curr_pos)
+{
+    const char *p = ltrim_spaces(&op_data->buffer[*curr_pos]);
+    *curr_pos = (size_t)(p - op_data->buffer);
+    if (op_data->buffer[*curr_pos] == '(')
+    {
+        node_t* node = NULL;
+        err_t ret = node_ctor(&node);
+        if (ret != OK) return NULL;
+        (*curr_pos)++;
+        char data[512] = { 0 };
+        size_t read_bytes = read_data(op_data, curr_pos, data);
+        if (read_bytes == 0) return NULL;
+        node->data = strdup(data);
+        node->left  = read_node(op_data, curr_pos);
+        node->right = read_node(op_data, curr_pos);
+        (*curr_pos)++;
+        return node;
+    } else if (NIL_CMP(op_data->buffer, curr_pos))
+    {
+        (*curr_pos) += 3;
+        return NULL;
+    }
+
+    return NULL;
+}
+
+#undef NIL_CMP
+
+err_t akinator_read_file(akinator_t* akin, char* filename)
+{
+    if (akin == NULL) return ERR_BAD_ARG;
+        
+    size_t fsize = (size_t)get_file_size_stat(filename) + 1;
+    operational_data_t op_data = { 0 };
+    op_data.buffer_size = fsize;
+    op_data.buffer = (char*)calloc(1, fsize);
+
+    FILE* file = load_file(filename, "rb");
+    size_t read = read_file(file, &op_data);
+    if (read == 0) return ERR_CORRUPT;
+
+    size_t curr_pos = 0;
+    if ((unsigned char)op_data.buffer[0] == 0xEF &&
+        (unsigned char)op_data.buffer[1] == 0xBB &&
+        (unsigned char)op_data.buffer[2] == 0xBF) {
+        curr_pos = 3;
+    }
+    akin->tree->root = read_node(&op_data, &curr_pos);
+    if (akin->tree->root == NULL) return ERR_CORRUPT;
+
+    free(op_data.buffer);
+    fclose(file);
+    return OK;
 }
 
