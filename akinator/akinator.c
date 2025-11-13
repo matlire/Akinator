@@ -565,12 +565,19 @@ static node_t* read_node(operational_data_t* op_data, size_t* curr_pos)
         char data[512] = {0};
         if (read_data(op_data, curr_pos, data) == 0) { node_dtor(node); return NULL; }
         node->data = strdup(data);
+        
+        CREATE_TREE(tmp_tree);
+        tmp_tree.root = node;
+        tree_dump(&tmp_tree, "loading node...", "tg_load_dump.html");
         if (!match_ch(op_data, curr_pos, ':')) { node_dtor(node); return NULL; }
         if (!match_ch(op_data, curr_pos, '[')) { node_dtor(node); return NULL; }
 
         node->left  = read_node(op_data, curr_pos);
         if (!match_ch(op_data, curr_pos, ',')) { node_dtor(node); return NULL; }
+        tree_dump(&tmp_tree, "loaded left...", "tg_load_dump.html");
+
         node->right = read_node(op_data, curr_pos);
+        tree_dump(&tmp_tree, "loaded both (left and right)...", "tg_load_dump.html");
 
         if (!match_ch(op_data, curr_pos, ']')) { node_dtor(node); return NULL; }
         if (!match_ch(op_data, curr_pos, '}')) { node_dtor(node); return NULL; }
