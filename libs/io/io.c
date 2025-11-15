@@ -59,7 +59,8 @@ ssize_t get_file_size_stat(const char * const filename) {
     if (!CHECK(ERROR, filename != NULL,
           "No filename provided!")) return -1;
 
-    struct stat st = { 0 };
+    struct stat st;
+    memset(&st, 0, sizeof(st));
     if (stat(filename, &st) == 0) {
         return (ssize_t)st.st_size;
     } else {
@@ -98,3 +99,41 @@ size_t clean_file(const char * const filename)
     fclose(file_out);
     return 1;
 }
+
+void flush_input(void)
+{
+    int ch = 0;
+    while ((ch = getchar()) != '\n' && ch != EOF) {  }
+}
+
+size_t read_line(char *buf, size_t cap)
+{
+    if (!buf || cap == 0) return -1;
+
+    buf[0] = '\0';
+
+    if (cap == 1) 
+    {
+        flush_input();
+        return 0;
+    }
+
+    char fmt[32] = {0};
+    size_t maxlen = cap - 1;
+    snprintf(fmt, sizeof(fmt), "%%%zu[^\n]", maxlen);
+
+    int rc = scanf(fmt, buf);
+    if (rc == EOF || rc == 0) 
+        return 0;
+
+    flush_input();
+
+    size_t len = strlen(buf);
+    if (len && buf[len - 1] == '\r') 
+    {
+        buf[--len] = '\0';
+    }
+
+    return len;
+}
+

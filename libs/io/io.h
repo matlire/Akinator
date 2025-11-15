@@ -44,4 +44,7 @@ ssize_t get_file_size_stat (const char * const filename);
 
 size_t clean_file(const char * const filename);
 
+void flush_input(void);
+size_t read_line(char *buf, size_t cap);
+
 #endif

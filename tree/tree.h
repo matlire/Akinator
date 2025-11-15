@@ -29,8 +29,9 @@ typedef struct
     node_t* root;
 } tree_t;
 
-#define CREATE_TREE(tree_name) \
-    tree_t tree_name = { 0 };  \
+#define CREATE_TREE(tree_name)                                \
+    tree_t tree_name;                                         \
+    memset(&(tree_name), 0, sizeof(tree_name));               \
     tree_ctor(&(tree_name))
 
 #define CREATE_NODE(node_name)                      \

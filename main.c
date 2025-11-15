@@ -1,55 +1,135 @@
 #include "akinator/akinator.h"
 #include "libs/logging/logging.h"
-
 #include "tree/dump/dump.h"
 
-int main()
+#include <locale.h>
+#include <stdio.h>
+#include <string.h>
+
+const char* DEFAULT_DB_FILE = "akinator1_db.json";
+
+void sw(akinator_t* akin);
+
+int main(void)
 {
+    setlocale(LC_ALL, "");
     init_logging("log.log", DEBUG);
 
     CREATE_AKINATOR(akinator1);
 
-    akinator_read_file(&akinator1, "akinator1_db.json");
-    tree_dump(akinator1.tree, "test", "tgdump.html");
-
-    /*
-    insert_object(&akinator1, "Животное?", NULL, DIR_IGNORE, DIR_IGNORE);
-    tree_dump(akinator1.tree, "test", "tgdump.html");
-    node_t* root = akinator1.tree->root;
-
-    insert_object(&akinator1, "Полторашка", root, DIR_YES, DIR_IGNORE);
-    insert_object(&akinator1, "Препает матан?", root, DIR_NO, DIR_IGNORE);
-    tree_dump(akinator1.tree, "test", "tgdump.html");
-
-    node_t* preps = root->right;
-
-    insert_object(&akinator1, "ПетроВич", preps, DIR_YES, DIR_IGNORE);
-    tree_dump(akinator1.tree, "test", "tgdump.html");
-
-    insert_object(&akinator1, "Паша", preps, DIR_NO, DIR_IGNORE);
-    tree_dump(akinator1.tree, "test", "tgdump.html"); 
-
-    insert_object(&akinator1, "Задает домашки?", preps, DIR_NO, DIR_NO);
-    node_t* gives = preps->right;
-    insert_object(&akinator1, "Кириков", gives, DIR_YES, DIR_IGNORE);
-    tree_dump(akinator1.tree, "test", "tgdump.html"); 
-
-    akinator_run(&akinator1);
-    tree_dump(akinator1.tree, "test", "tgdump.html"); 
+    akinator_read_file(&akinator1, DEFAULT_DB_FILE, INFO);
+    sw(&akinator1);
     
-    akinator_write_file(&akinator1, "akinator1_db.json");
-    */
-
-    akinator_run(&akinator1);
-
-    /*
-    describe_object(&akinator1, "ПетроВич");
-    difference_in_objects(&akinator1, "ПетроВич", "Паша");
-    */
-
     akinator_dtor(&akinator1);
-
     close_log_file();
-
     return 0;
+}
+
+void sw(akinator_t* akin)
+{
+    int running = 1;
+    while (running) 
+    {
+        printf("\n=== Акинатор ===\n");
+        printf("1) Прочитать базу\n");
+        printf("2) Сохранить базу\n");
+        printf("3) Запустить игру\n");
+        printf("4) Описать объект\n");
+        printf("5) Разница между объектами\n");
+        printf("0) Выход\n");
+        printf("Ваш выбор: ");
+        fflush(stdout);
+
+        int choice = -1;
+        if (scanf("%d", &choice) != 1) {
+            flush_input();
+            continue;
+        }
+        flush_input();
+
+        switch (choice) 
+        {
+            case 1: 
+            {
+                char fname[512] = {  };
+                printf("Введите имя файла для чтения (по умолчанию: %s): ", DEFAULT_DB_FILE);
+                fflush(stdout);
+                read_line(fname, sizeof(fname));
+                const char *use_name = fname[0] ? fname : DEFAULT_DB_FILE;
+
+                err_t rc = akinator_read_file(akin, use_name, INFO);
+                if (rc != OK)
+                    printf("Ошибка чтения базы из \"%s\": %d\n", use_name, rc);
+                else
+                    printf("База прочитана из \"%s\".\n", use_name);
+                break;
+            }
+            case 2: 
+            {
+                char name[512] = {  };
+                printf("Введите имя файла для записи (по умолчанию: %s): ", DEFAULT_DB_FILE);
+                fflush(stdout);
+                read_line(name, sizeof(name));
+                const char *use_name = name[0] ? name : DEFAULT_DB_FILE;
+
+                err_t rc = akinator_write_file(akin, use_name);
+                if (rc != OK)
+                    printf("Ошибка записи базы в \"%s\": %d\n", use_name, rc);
+                else
+                    printf("База сохранена в \"%s\".\n", use_name);
+                break;
+            }
+            case 3: 
+            {
+                err_t rc = akinator_run(akin);
+                if (rc != OK)
+                    printf("Ошибка во время игры: %d\n", rc);
+                else
+                    printf("Игра завершена.\n");
+                break;
+            }
+            case 4: 
+            {
+                char name[512] = {  };
+                printf("Введите имя объекта: ");
+                fflush(stdout);
+                read_line(name, sizeof(name));
+                if (name[0] == '\0') {
+                    printf("Пустое имя.\n");
+                    break;
+                }
+                err_t rc = describe_object(akin, name);
+                if (rc != OK)
+                    printf("Не удалось описать объект \"%s\" (код %d).\n", name, rc);
+                break;
+            }
+            case 5: 
+            {
+                char obj1[512] = {  };
+                char obj2[512] = {  };
+                printf("Введите первый объект: ");
+                fflush(stdout);
+
+                read_line(obj1, sizeof(obj1));
+                printf("Введите второй объект: ");
+                fflush(stdout);
+
+                read_line(obj2, sizeof(obj2));
+                if (!obj1[0] || !obj2[0]) {
+                    printf("Пустое имя объекта.\n");
+                    break;
+                }
+                err_t rc = difference_in_objects(akin, obj1, obj2);
+                if (rc != OK)
+                    printf("Не удалось сравнить \"%s\" и \"%s\" (код %d).\n", obj1, obj2, rc);
+                break;
+            }
+            case 0:
+                running = 0;
+                break;
+            default:
+                printf("Неизвестный пункт меню.\n");
+                break;
+        }
+    }
 }

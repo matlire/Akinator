@@ -1,8 +1,8 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#define begin do {
-#define end } while (0)
+#define block_begin do {
+#define block_end   } while (0)
 
 #define unused (void)
 
