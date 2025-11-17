@@ -21,6 +21,19 @@ static void say_and_print(const char *fmt, ...)
     festival_say_text(buffer);
 }
 
+static void set_parse_error(operational_data_t* op_data,
+                            size_t pos,
+                            const char* fmt, ...)
+{
+    if (!op_data) return;
+    if (op_data->error_msg[0] != '\0') return;
+
+    op_data->error_pos = pos;
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(op_data->error_msg, sizeof(op_data->error_msg), fmt, args);
+    va_end(args);
+}
 
 err_t akinator_ctor (akinator_t* akin)
 { 
@@ -584,11 +597,18 @@ static void skip_ws(operational_data_t* op_data, size_t* pos)
     }
 }
 
-static int match_ch(operational_data_t* op_data, size_t* pos, char ch)
+static int match_ch(operational_data_t* op_data, size_t* pos, char ch, const char* ctx)
 {
     skip_ws(op_data, pos);
     if (*pos < op_data->buffer_size && op_data->buffer[*pos] == ch) 
         { (*pos)++; return 1; }
+
+
+    set_parse_error(op_data, *pos,
+                    "expected '%c'%s%s",
+                    ch,
+                    ctx ? " " : "",
+                    ctx ? ctx : "");
     return 0;
 }
 
@@ -598,8 +618,9 @@ static size_t read_data(operational_data_t* op_data, size_t* pos, char* data)
     const char* p   = ltrim_spaces(&buf[*pos]);
     *pos = (size_t)(p - buf);
 
-    const char* open = (*p == '"') ? p : strstr(p, "\"");
-    if (open == NULL) return 0;
+    const char* open = (*p == '"') ? p : strchr(p, '"');
+    if (open == NULL) 
+        { set_parse_error(op_data, *pos, "expected '\"' to start string"); return 0; }
     open++;
 
     size_t n = 0;
@@ -608,7 +629,9 @@ static size_t read_data(operational_data_t* op_data, size_t* pos, char* data)
         data[n++] = *open;
         open++;
     }
-    if (*open != '"') return 0;
+
+    if (*open != '"') 
+        { set_parse_error(op_data, (size_t)(open - buf), "unterminated string (missing closing '\"')"); return 0; }
 
     data[n] = '\0';
 
@@ -616,6 +639,7 @@ static size_t read_data(operational_data_t* op_data, size_t* pos, char* data)
     *pos += read;
     return read;
 }
+
 
 static node_t* read_node(operational_data_t* op_data, size_t* curr_pos, logging_level level)
 {
@@ -639,18 +663,18 @@ static node_t* read_node(operational_data_t* op_data, size_t* curr_pos, logging_
         CREATE_TREE(tmp_tree);
         tmp_tree.root = node;
         tree_dump(&tmp_tree, "loading node...", "tg_load_dump.html");
-        if (!match_ch(op_data, curr_pos, ':')) { tree_delete_node(node, 0); return NULL; }
-        if (!match_ch(op_data, curr_pos, '[')) { tree_delete_node(node, 0); return NULL; }
+        if (!match_ch(op_data, curr_pos, ':', "after node question")) { tree_delete_node(node, 0); return NULL; }
+        if (!match_ch(op_data, curr_pos, '[', "before children list")) { tree_delete_node(node, 0); return NULL; }
 
         node->left  = read_node(op_data, curr_pos, level);
-        if (!match_ch(op_data, curr_pos, ',')) { tree_delete_node(node, 0); return NULL; }
+        if (!match_ch(op_data, curr_pos, ',', "between left and right children")) { tree_delete_node(node, 0); return NULL; }
         tree_dump(&tmp_tree, "loaded left...", "tg_load_dump.html");
 
         node->right = read_node(op_data, curr_pos, level);
         tree_dump(&tmp_tree, "loaded both (left and right)...", "tg_load_dump.html");
 
-        if (!match_ch(op_data, curr_pos, ']')) { tree_delete_node(node, 0); return NULL; }
-        if (!match_ch(op_data, curr_pos, '}')) { tree_delete_node(node, 0); return NULL; }
+        if (!match_ch(op_data, curr_pos, ']', "closing children list")) { tree_delete_node(node, 0); return NULL; }
+        if (!match_ch(op_data, curr_pos, '}', "closing node object")) { tree_delete_node(node, 0); return NULL; }
 
         return node;
     }
@@ -670,6 +694,10 @@ static node_t* read_node(operational_data_t* op_data, size_t* curr_pos, logging_
         (*curr_pos) += 4;
         return NULL;
     }
+
+    set_parse_error(op_data, *curr_pos,
+                    "unexpected character '%c' while parsing",
+                    op_data->buffer[*curr_pos]);
 
     return NULL;
 }
@@ -701,7 +729,33 @@ err_t akinator_read_file(akinator_t* akin, const char* filename, logging_level l
     tree_dump_reset("tg_load_dump.html");
     tree_clear(&(akin->tree));
     akin->tree.root = read_node(&op_data, &curr_pos, level);
-    if (akin->tree.root == NULL) return ERR_CORRUPT;
+    if (akin->tree.root == NULL) 
+    {
+        size_t err_pos = op_data.error_msg[0] ? op_data.error_pos : curr_pos;
+        size_t line = 1;
+        size_t col  = 1;
+
+        for (size_t i = 0; i < err_pos && i < op_data.buffer_size; ++i) 
+        {
+            if (op_data.buffer[i] == '\n') { line++; col = 1; }
+            else                           { col++; }
+        }
+
+        const char* msg = op_data.error_msg[0] ? op_data.error_msg
+                                               : "unknown parse error";
+
+        log_printf(ERROR,
+                   "Parse error in \"%s\" at %zu:%zu (offset %zu): %s",
+                   filename ? filename : "<input>",
+                   line, col, err_pos, msg);
+        printf("Parse error in \"%s\" at %zu:%zu (offset %zu): %s",
+                   filename ? filename : "<input>",
+                   line, col, err_pos, msg);
+
+        free(op_data.buffer);
+        fclose(file);
+        return ERR_CORRUPT;
+    }
 
     free(op_data.buffer);
     fclose(file);

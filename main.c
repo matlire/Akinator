@@ -17,7 +17,7 @@ int main(void)
 
     CREATE_AKINATOR(akinator1);
 
-    akinator_read_file(&akinator1, DEFAULT_DB_FILE, INFO);
+    if (akinator_read_file(&akinator1, DEFAULT_DB_FILE, INFO) != OK) { akinator_dtor(&akinator1); close_log_file(); return 1; };
     sw(&akinator1);
     
     akinator_dtor(&akinator1);

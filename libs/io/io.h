@@ -19,6 +19,9 @@ typedef struct
     
     char*  buffer;
     size_t buffer_size;
+
+    size_t error_pos;
+    char   error_msg[128];
 } operational_data_t;
 
 /*
