@@ -8,7 +8,7 @@
 
 #define SAY_AND_PRINT_BUFF 512
 
-static void say_and_print(const char *fmt, ...)
+void say_and_print(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -18,6 +18,17 @@ static void say_and_print(const char *fmt, ...)
 
     printf("%s", buffer);
     fflush(stdout);
+    festival_say_text(buffer);
+}
+
+void say(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char buffer[SAY_AND_PRINT_BUFF] = { 0 };
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
     festival_say_text(buffer);
 }
 
@@ -248,7 +259,7 @@ static void print_path_desc(node_t **stack_nodes, int *edge_dir, int top, const 
     say_and_print("%s", object);
     if (top > 0) say_and_print(" ");
 
-    qdir_t items[MAX_RECURSION_LIMIT + 1];
+    qdir_t items[MAX_RECURSION_LIMIT + 1] = {  };
 
     int cnt = collect_path(stack_nodes, edge_dir, top, items, MAX_RECURSION_LIMIT + 1);
     if (cnt < 0) { say_and_print("<слишком длинный путь>\n"); return; }
@@ -323,6 +334,7 @@ err_t difference_in_objects(akinator_t* akin, const char* obj1, const char* obj2
             if (!used2[j]) 
             {
                 const char *q2 = path2[j].q;
+
                 if (q1 && q2 && strcmp(q1, q2) == 0) 
                 {
                     match_j = j;

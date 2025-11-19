@@ -28,6 +28,9 @@ typedef struct
     akinator_t akinator_name = {  };   \
     akinator_ctor(&(akinator_name))
 
+void say(const char *fmt, ...);
+void say_and_print(const char *fmt, ...);
+
 err_t akinator_ctor (akinator_t* akin);
 err_t akinator_dtor (akinator_t* akin);
 err_t akinator_reset(akinator_t* akin);
