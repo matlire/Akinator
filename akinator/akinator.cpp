@@ -156,186 +156,139 @@ err_t insert_object(akinator_t* akin, char* value, node_t* after, directions_e d
     return OK;
 }
 
-typedef enum
-{
-    STATE_NOT_VISITED = 0,
-    STATE_LEFT_DONE   = 1,
-    STATE_BOTH_DONE   = 2
-} dfs_state_e;
-
 #define IS_LEAF(nd) (!(nd)->left && !(nd)->right)
 
-static inline int push_child(node_t        **stack_nodes,
-                             dfs_state_e    *state,
-                             int            *edge_dir,
-                             int            *top,
-                             const node_t   *child,
-                             int             dir)
+typedef struct
 {
-    if (!child) return 0;
-    ++(*top);
-    if (*top > MAX_RECURSION_LIMIT) return -1;
-    stack_nodes[*top] = (node_t*)child;
-    state[*top] = STATE_NOT_VISITED;
-    edge_dir[*top] = dir;
-    return 1;
+    const char *q;   // question text
+    int         d;   // direction (DIR_YES / DIR_NO)
+} qdir_t;
+
+static void print_qdir_items(const qdir_t* items, int cnt)
+{
+    for (int i = 0; i < cnt; ++i)
+    {
+        const char *q = items[i].q ? items[i].q : "";
+
+        if (i > 0)
+            say_and_print(" и ");
+
+        if (items[i].d == DIR_YES)
+            say_and_print("\"%s\"", q);
+        else
+            say_and_print("не \"%s\"", q);
+    }
 }
 
-static int find_object_path(akinator_t* akin, const char* object,
-                            node_t** stack_nodes, dfs_state_e* state, int* edge_dir, int* out_top)
+/*
+ * Returns:
+ *   1  - found
+ *   0  - not found
+ *  -1  - recursion limit exceeded / corrupt tree
+ */
+static int find_object_path(const node_t *node,
+                            const char  *object,
+                            node_t     **path_nodes,
+                            int         *edge_dir,
+                            int          depth,
+                            int         *out_depth)
 {
-    int top        = 0;
-    stack_nodes[0] = akin->tree.root; 
-    state[0]       = STATE_NOT_VISITED;
-    edge_dir[0]    = -1;
+    if (!node)
+        return 0;
 
-    while (top >= 0) 
+    if (depth > MAX_RECURSION_LIMIT)
+        return -1;
+
+    path_nodes[depth] = (node_t*)node;
+
+    // Objects are stored only in leaves
+    if (IS_LEAF(node) && node->data && strcmp(node->data, object) == 0)
     {
-        node_t* n = stack_nodes[top];
+        *out_depth = depth;
+        return 1;
+    }
 
-        if (IS_LEAF(n) && state[top] == STATE_NOT_VISITED) 
-        {
-            if (n->data && strcmp(n->data, object) == 0) 
-            {
-                *out_top = top;
-                return 1;
-            }
-            state[top] = STATE_BOTH_DONE;
-        }
+    if (depth == MAX_RECURSION_LIMIT)
+        return -1;
 
-        if (state[top] == STATE_NOT_VISITED) 
-        {
-            state[top] = STATE_LEFT_DONE;
-            int r = push_child(stack_nodes, state, edge_dir, &top, n->left, DIR_YES);
-            if (r < 0) return -1;
-            if (r > 0) continue;
-        }
+    // Go left (answer "yes")
+    if (node->left)
+    {
+        edge_dir[depth + 1] = DIR_YES;
+        int rc = find_object_path(node->left, object,
+                                  path_nodes, edge_dir,
+                                  depth + 1, out_depth);
+        if (rc != 0)
+            return rc;
+    }
 
-        if (state[top] == STATE_LEFT_DONE) 
-        {
-            state[top] = STATE_BOTH_DONE;
-            int r = push_child(stack_nodes, state, edge_dir, &top, n->right, DIR_NO);
-            if (r < 0) return -1;
-            if (r > 0) continue;
-        }
-
-        if (state[top] == STATE_BOTH_DONE) --top;
+    if (node->right)
+    {
+        edge_dir[depth + 1] = DIR_NO;
+        int rc = find_object_path(node->right, object,
+                                  path_nodes, edge_dir,
+                                  depth + 1, out_depth);
+        if (rc != 0)
+            return rc;
     }
 
     return 0;
 }
 
-typedef struct
+/*
+ * Returns:
+ *   1  - found
+ *   0  - not found
+ *  -1  - error (too deep)
+ */
+static int build_object_description(const akinator_t *akin,
+                                    const char       *object,
+                                    qdir_t           *out_items,
+                                    int              *out_count)
 {
-    const char *q;
-    int         d;
-} qdir_t;
+    node_t* path_nodes[MAX_RECURSION_LIMIT + 1] = { 0 };
+    int     edge_dir  [MAX_RECURSION_LIMIT + 1] = { 0 };
+    int     depth = -1;
 
-static void print_qdir_items(const qdir_t* items, int cnt)
-{
-    for (int i = 0; i < cnt; ++i) {
-        if (i > 0) say_and_print(" и ");
-        if (items[i].d == DIR_YES)
-            say_and_print("\"%s\"", items[i].q ? items[i].q : "");
-        else
-            say_and_print("не \"%s\"", items[i].q ? items[i].q : "");
-    }
-}
+    int rc = find_object_path(akin->tree.root, object,
+                              path_nodes, edge_dir, 0, &depth);
+    if (rc <= 0)
+        return rc;
 
-static int collect_path(node_t** path_nodes, int* edge_dir, int depth,
-                        qdir_t* out_items, int max_items)
-{
-    if (depth > max_items) return -1;
-    for (int i = 0; i < depth; ++i) 
+    int cnt = depth;
+    if (cnt > MAX_RECURSION_LIMIT)
+        return -1;
+
+    for (int i = 0; i < cnt; ++i)
     {
         out_items[i].q = path_nodes[i]->data;
         out_items[i].d = edge_dir[i + 1];
     }
-    return depth;
+
+    *out_count = cnt;
+    return 1;
 }
 
-static void print_path_desc(node_t **stack_nodes, int *edge_dir, int top, const char *object)
+static void split_paths(const qdir_t *path1, int count1,
+                        const qdir_t *path2, int count2,
+                        qdir_t *shared, int *shared_count,
+                        qdir_t *only1,  int *only1_count,
+                        qdir_t *only2,  int *only2_count)
 {
-    say_and_print("%s", object);
-    if (top > 0) say_and_print(" ");
+    int used2[MAX_RECURSION_LIMIT + 1] = { 0 };
 
-    qdir_t items[MAX_RECURSION_LIMIT + 1] = {  };
-
-    int cnt = collect_path(stack_nodes, edge_dir, top, items, MAX_RECURSION_LIMIT + 1);
-    if (cnt < 0) { say_and_print("<слишком длинный путь>\n"); return; }
-
-    print_qdir_items(items, cnt);
-    say_and_print("\n");
-}
-
-err_t describe_object(akinator_t* akin, const char* object)
-{
-    if (!CHECK(ERROR, akin != NULL && object != NULL && akin->tree.root != NULL,
-                 "describe_object: bad arguments")) return ERR_BAD_ARG;
-
-    node_t*       stack_nodes[MAX_RECURSION_LIMIT + 1] = {  };
-    dfs_state_e   state[MAX_RECURSION_LIMIT + 1]       = {  };
-    int           edge_dir[MAX_RECURSION_LIMIT + 1]    = {  };
-    int           top = -1;
-
-    int r = find_object_path(akin, object, stack_nodes, state, edge_dir, &top);
-    if (r < 0) return ERR_CORRUPT;
-    if (r == 0) return ERR_BAD_ARG;
-
-    print_path_desc(stack_nodes, edge_dir, top, object);
-    return OK;
-}
-
-err_t difference_in_objects(akinator_t* akin, const char* obj1, const char* obj2)
-{
-    if (!CHECK(ERROR, akin != NULL && obj1 != NULL && obj2 != NULL && akin->tree.root != NULL,
-                 "difference_in_objects: bad arguments")) return ERR_BAD_ARG;
-
-    node_t*       path1_nodes[MAX_RECURSION_LIMIT + 1] = { };
-    dfs_state_e   path1_state[MAX_RECURSION_LIMIT + 1] = { };
-    int           path1_dir  [MAX_RECURSION_LIMIT + 1] = { };
-    int           depth1 = -1;
-
-    node_t*       path2_nodes[MAX_RECURSION_LIMIT + 1] = { };
-    dfs_state_e   path2_state[MAX_RECURSION_LIMIT + 1] = { };
-    int           path2_dir  [MAX_RECURSION_LIMIT + 1] = { };
-    int           depth2 = -1;
-
-    int rc = find_object_path(akin, obj1, path1_nodes, path1_state, path1_dir, &depth1);
-    if (rc <= 0) return ERR_BAD_ARG;
-
-    rc = find_object_path(akin, obj2, path2_nodes, path2_state, path2_dir, &depth2);
-    if (rc <= 0) return ERR_BAD_ARG;
-
-    qdir_t path1[MAX_RECURSION_LIMIT + 1] = { };
-    qdir_t path2[MAX_RECURSION_LIMIT + 1] = { };
-
-    int count1 = collect_path(path1_nodes, path1_dir, depth1, path1, MAX_RECURSION_LIMIT + 1);
-    int count2 = collect_path(path2_nodes, path2_dir, depth2, path2, MAX_RECURSION_LIMIT + 1);
-    if (count1 < 0 || count2 < 0) return ERR_CORRUPT;
-
-    qdir_t shared[MAX_RECURSION_LIMIT + 1] = { };
-    qdir_t only1 [MAX_RECURSION_LIMIT + 1] = { };
-    qdir_t only2 [MAX_RECURSION_LIMIT + 1] = { };
-    int shared_count = 0;
-    int only1_count  = 0;
-    int only2_count  = 0;
-
-    int used2[MAX_RECURSION_LIMIT + 1] = { };
-
-    for (int i = 0; i < count1; ++i) 
+    for (int i = 0; i < count1; ++i)
     {
         const char *q1 = path1[i].q;
         int         d1 = path1[i].d;
 
         int match_j = -1;
-        for (int j = 0; j < count2; ++j) 
+        for (int j = 0; j < count2; ++j)
         {
-            if (!used2[j]) 
+            if (!used2[j])
             {
                 const char *q2 = path2[j].q;
-
-                if (q1 && q2 && strcmp(q1, q2) == 0) 
+                if (q1 && q2 && strcmp(q1, q2) == 0)
                 {
                     match_j = j;
                     break;
@@ -343,74 +296,133 @@ err_t difference_in_objects(akinator_t* akin, const char* obj1, const char* obj2
             }
         }
 
-        if (match_j >= 0) 
+        if (match_j >= 0)
         {
             used2[match_j] = 1;
             int d2 = path2[match_j].d;
 
-            if (d1 == d2) 
+            if (d1 == d2)
             {
-                shared[shared_count].q = q1;
-                shared[shared_count].d = d1;
-                ++shared_count;
-            } else 
-            {
-                only1[only1_count].q = q1;
-                only1[only1_count].d = d1;
-                ++only1_count;
-
-                only2[only2_count].q = path2[match_j].q;
-                only2[only2_count].d = d2;
-                ++only2_count;
+                shared[*shared_count].q = q1;
+                shared[*shared_count].d = d1;
+                ++(*shared_count);
             }
-        } else 
+            else
+            {
+                // Same question, different answer -> difference
+                only1[*only1_count].q = q1;
+                only1[*only1_count].d = d1;
+                ++(*only1_count);
+
+                only2[*only2_count].q = path2[match_j].q;
+                only2[*only2_count].d = d2;
+                ++(*only2_count);
+            }
+        }
+        else
         {
-            only1[only1_count].q = q1;
-            only1[only1_count].d = d1;
-            ++only1_count;
+            // Question appears only on path1
+            only1[*only1_count].q = q1;
+            only1[*only1_count].d = d1;
+            ++(*only1_count);
         }
     }
 
-    for (int j = 0; j < count2; ++j) 
+    // Remaining questions that appear only in path2
+    for (int j = 0; j < count2; ++j)
     {
-        if (!used2[j]) 
+        if (!used2[j])
         {
-            only2[only2_count].q = path2[j].q;
-            only2[only2_count].d = path2[j].d;
-            ++only2_count;
+            only2[*only2_count].q = path2[j].q;
+            only2[*only2_count].d = path2[j].d;
+            ++(*only2_count);
         }
     }
+}
 
-    int printed = 0;
+err_t describe_object(akinator_t* akin, const char* object)
+{
+    if (!CHECK(ERROR,
+               akin != NULL && object != NULL && akin->tree.root != NULL,
+               "describe_object: bad arguments"))
+        return ERR_BAD_ARG;
 
-    if (shared_count > 0) 
+    qdir_t desc[MAX_RECURSION_LIMIT + 1] = {  };
+    int    cnt = 0;
+
+    int rc = build_object_description(akin, object, desc, &cnt);
+    if (rc < 0)  return ERR_CORRUPT;
+    if (rc == 0) return ERR_BAD_ARG;
+
+    say_and_print("%s", object);
+    if (cnt > 0)
+    {
+        say_and_print(" ");
+        print_qdir_items(desc, cnt);
+    }
+    say_and_print("\n");
+
+    return OK;
+}
+
+err_t difference_in_objects(akinator_t* akin, const char* obj1, const char* obj2)
+{
+    if (!CHECK(ERROR,
+               akin != NULL && obj1 != NULL && obj2 != NULL && akin->tree.root != NULL,
+               "difference_in_objects: bad arguments"))
+        return ERR_BAD_ARG;
+
+    qdir_t path1[MAX_RECURSION_LIMIT + 1] = {  };
+    qdir_t path2[MAX_RECURSION_LIMIT + 1] = {  };
+    int    count1 = 0;
+    int    count2 = 0;
+
+    int rc = build_object_description(akin, obj1, path1, &count1);
+    if (rc <= 0) return (rc < 0) ? ERR_CORRUPT : ERR_BAD_ARG;
+
+    rc = build_object_description(akin, obj2, path2, &count2);
+    if (rc <= 0) return (rc < 0) ? ERR_CORRUPT : ERR_BAD_ARG;
+
+    qdir_t shared[MAX_RECURSION_LIMIT + 1] = {  };
+    qdir_t only1 [MAX_RECURSION_LIMIT + 1] = {  };
+    qdir_t only2 [MAX_RECURSION_LIMIT + 1] = {  };
+    int shared_count = 0;
+    int only1_count  = 0;
+    int only2_count  = 0;
+
+    split_paths(path1, count1,
+                path2, count2,
+                shared, &shared_count,
+                only1,  &only1_count,
+                only2,  &only2_count);
+
+    if (shared_count > 0)
     {
         say_and_print("%s и %s ", obj1, obj2);
         print_qdir_items(shared, shared_count);
-        printed = 1;
     }
 
-    if (only1_count > 0 || only2_count > 0) 
+    if (only1_count > 0 || only2_count > 0)
     {
-        if (printed) say_and_print(" но ");
-        say_and_print("%s ", obj1);
+        if (shared_count > 0)
+            say_and_print(" но ");
 
+        say_and_print("%s ", obj1);
         if (only1_count > 0)
             print_qdir_items(only1, only1_count);
         else
             say_and_print("ничем не отличаются");
 
         say_and_print(" а %s ", obj2);
-
         if (only2_count > 0)
             print_qdir_items(only2, only2_count);
         else
             say_and_print("ничем не отличаются");
-
-        printed = 1;
     }
 
-    if (printed) printf("\n");
+    if (shared_count > 0 || only1_count > 0 || only2_count > 0)
+        say_and_print("\n");
+
     return OK;
 }
 
